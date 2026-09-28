@@ -358,3 +358,20 @@ def test_unhandled_errors_are_generic(settings):
         r = tc.post("/interview/evaluate", json=EVAL_BODY)
     assert r.status_code == 500
     assert "secret" not in r.text
+
+
+def test_health_reports_a_separate_embedding_provider_with_its_id(settings):
+    # Groq chat + Gemini embeddings: the backend reads embeddings.embedding for its own health output.
+    import httpx
+
+    from app.providers.api_provider import APIProvider
+
+    emb = APIProvider(name="gemini", base_url="", api_key="k", model="", embedding_model="gemini-embedding-2",
+                      transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"data": []})))
+    c = build_container(settings, provider=ScriptedProvider(), embedder=emb)
+    from fastapi.testclient import TestClient
+
+    with TestClient(create_app(settings, c)) as tc:
+        body = tc.get("/health").json()
+    assert body["embeddings"]["embedding"] == "gemini:gemini-embedding-2"
+    assert body["embeddings"]["status"] == "ok"

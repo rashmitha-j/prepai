@@ -41,7 +41,7 @@ async def health(c: Container = Depends(get_container)):
     embeddings = (
         {"status": provider.get("status"), "embedding": c.embedder.embedding_id}
         if c.embedder is c.provider
-        else await c.embedder.health_check()
+        else {**await c.embedder.health_check(), "embedding": c.embedder.embedding_id}
     )
     try:
         chunks = c.rag.store.count()

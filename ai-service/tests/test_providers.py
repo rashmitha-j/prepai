@@ -94,7 +94,7 @@ async def test_ollama_health_unreachable():
 
 def api(handler, **kw):
     params = dict(name="openai", base_url="", api_key="dummy-test-key", model="gpt-test",
-                  embedding_model="embed-test", transport=httpx.MockTransport(handler))
+                  embedding_model="embed-test", retry_delays=(0.0, 0.0), transport=httpx.MockTransport(handler))
     params.update(kw)
     return APIProvider(**params)
 
@@ -114,6 +114,79 @@ async def test_api_provider_uses_preset_and_json_mode():
     assert seen["url"] == "https://api.openai.com/v1/chat/completions"
     assert seen["body"]["response_format"] == {"type": "json_object"}
     assert seen["auth"].startswith("Bearer ")
+
+
+async def test_api_provider_sends_reasoning_effort_only_when_configured():
+    bodies = []
+
+    def handler(request: httpx.Request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    await api(handler, reasoning_effort="low").generate("hi")
+    await api(handler).generate("hi")
+    assert bodies[0]["reasoning_effort"] == "low"
+    assert "reasoning_effort" not in bodies[1]
+
+
+def test_reasoning_effort_setting_reaches_the_provider():
+    s = Settings(_env_file=None, ai_provider="gemini", api_key="k", api_model="m", api_reasoning_effort="low")
+    assert build_provider(s).reasoning_effort == "low"
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, api_reasoning_effort="bogus-level")
+
+
+async def test_api_provider_upstream_overload_is_unavailable_not_bad_output():
+    # Recorded from Gemini: HTTP 503 "This model is currently experiencing high demand."
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(503, json={"error": {"code": 503, "status": "UNAVAILABLE"}})
+
+    with pytest.raises(ProviderUnavailableError, match="temporarily unavailable"):
+        await api(handler).generate("hi")
+    assert len(calls) == 3  # first try + 2 retries
+
+
+async def test_api_provider_retries_transient_errors_then_succeeds():
+    replies = [httpx.Response(503, json={}), httpx.Response(502, json={}),
+               httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})]
+    assert await api(lambda r: replies.pop(0)).generate("hi") == "ok"
+    assert replies == []
+
+
+async def test_api_provider_does_not_retry_client_errors():
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(400, json={"error": "bad request"})
+
+    with pytest.raises(ProviderResponseError):
+        await api(handler).generate("hi")
+    assert len(calls) == 1
+
+
+async def test_api_provider_does_not_retry_quota_exhaustion():
+    # Recorded from Gemini's free tier: 429 GenerateRequestsPerDayPerProjectPerModel-FreeTier (limit 20/day).
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(429, json={"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}})
+
+    with pytest.raises(ProviderUnavailableError, match="quota"):
+        await api(handler).generate("hi")
+    assert len(calls) == 1
+
+
+def test_retry_after_header_is_honoured_and_capped():
+    from app.providers.api_provider import _retry_after
+
+    assert _retry_after(httpx.Response(503, headers={"retry-after": "3"}), default=2.0) == 3.0
+    assert _retry_after(httpx.Response(503, headers={"retry-after": "3600"}), default=2.0) == 20.0
+    assert _retry_after(httpx.Response(503), default=2.0) == 2.0
 
 
 async def test_api_provider_auth_error_does_not_leak_key():
@@ -180,3 +253,43 @@ def test_factory_embedder_selection():
     s = Settings(_env_file=None, ai_provider="ollama")
     p = build_provider(s)
     assert build_embedder(s, p) is p
+
+
+def test_chat_and_embeddings_can_use_different_api_vendors():
+    # Groq has no embeddings endpoint: chat on Groq, embeddings on Gemini, each with its own key.
+    s = Settings(_env_file=None, ai_provider="groq", api_key="groq-key", api_model="openai/gpt-oss-120b",
+                 embedding_provider="api", embedding_api_provider="gemini", embedding_api_key="gemini-key",
+                 api_embedding_model="gemini-embedding-2")
+    chat = build_provider(s)
+    emb = build_embedder(s, chat)
+    assert (chat.name, chat.model, chat.base_url) == ("groq", "openai/gpt-oss-120b", "https://api.groq.com/openai/v1")
+    assert emb is not chat and emb.embedding_only
+    assert emb.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+    assert emb.embedding_id == "gemini:gemini-embedding-2"
+    assert emb._api_key == "gemini-key" and chat._api_key == "groq-key"
+    assert "gemini-key" not in repr(emb) and "groq-key" not in repr(chat)
+
+
+def test_embedding_api_key_falls_back_to_api_key_and_empty_settings_change_nothing():
+    s = Settings(_env_file=None, ai_provider="groq", api_key="shared", api_model="m",
+                 embedding_provider="api", embedding_api_provider="openai", api_embedding_model="e")
+    assert build_embedder(s, build_provider(s))._api_key == "shared"
+    s = Settings(_env_file=None, ai_provider="openai", api_key="k", api_model="m", embedding_provider="api", api_embedding_model="e")
+    chat = build_provider(s)
+    assert build_embedder(s, chat) is chat  # unchanged behaviour without EMBEDDING_API_PROVIDER
+
+
+async def test_embedding_only_provider_embeds_and_reports_healthy_without_a_chat_model():
+    seen = {}
+
+    def handler(request: httpx.Request):
+        seen.setdefault("paths", []).append(request.url.path)
+        seen["auth"] = request.headers["authorization"]
+        if request.url.path.endswith("/models"):
+            return httpx.Response(200, json={"data": []})
+        return httpx.Response(200, json={"data": [{"index": 0, "embedding": [0.1, 0.2]}]})
+
+    emb = api(handler, name="gemini", model="", embedding_model="gemini-embedding-2", api_key="gemini-key")
+    assert await emb.embed(["hello"]) == [[0.1, 0.2]]
+    assert (await emb.health_check())["status"] == "ok"
+    assert seen["paths"][0] == "/v1beta/openai/embeddings" and seen["auth"] == "Bearer gemini-key"

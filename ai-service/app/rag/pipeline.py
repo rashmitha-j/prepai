@@ -1,6 +1,7 @@
 """RAG pipeline: ingest (clean → chunk → embed → store) and retrieve (embed → search → context)."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass
@@ -67,9 +68,19 @@ class RAGPipeline:
         self.chunk_overlap = chunk_overlap
         self.default_top_k = default_top_k
         self.min_score = min_score
+        # The backend's startup sync and the AI service's startup bootstrap can ingest at the same
+        # time; serialising them avoids embedding the same documents twice (and provider rate limits).
+        self._ingest_lock = asyncio.Lock()
 
     # ---------- ingestion ----------
-    async def ingest(self, documents: list[IngestDocument], *, replace: bool = True) -> dict:
+    async def ingest(self, documents: list[IngestDocument], *, replace: bool = True, skip_existing: bool = False) -> dict:
+        async with self._ingest_lock:
+            if skip_existing:  # checked under the lock, so a concurrent ingest cannot slip in between
+                present = self.store.list_documents()
+                documents = [d for d in documents if d.id not in present]
+            return await self._ingest(documents, replace=replace)
+
+    async def _ingest(self, documents: list[IngestDocument], *, replace: bool) -> dict:
         results = []
         total_chunks = 0
         for doc in documents:

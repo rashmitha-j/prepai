@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     api_key: str = Field(default="", repr=False)
     api_model: str = ""
     api_embedding_model: str = ""
+    # Sent as `reasoning_effort` on chat calls (Gemini: thinking level). Empty = provider default.
+    api_reasoning_effort: Literal["", "none", "minimal", "low", "medium", "high"] = ""
 
     llm_temperature: float = 0.3
     llm_timeout_seconds: float = 120.0
@@ -43,6 +45,12 @@ class Settings(BaseSettings):
     # api    -> API provider embeddings
     # hash   -> deterministic local feature-hashing embedder (no model, lexical only)
     embedding_provider: Literal["auto", "ollama", "api", "hash"] = "auto"
+    # With EMBEDDING_PROVIDER=api, embeddings can use a different API vendor than chat
+    # (e.g. Groq for chat, which has no embeddings endpoint, + Gemini for embeddings).
+    # Empty = same vendor/key/base URL as the chat provider. The model is API_EMBEDDING_MODEL.
+    embedding_api_provider: Literal["", "openai", "gemini", "groq", "openai_compatible"] = ""
+    embedding_api_key: str = Field(default="", repr=False)
+    embedding_api_base_url: str = ""
     hash_embedding_dim: int = 512
 
     # ----- RAG / vector store -----
@@ -57,7 +65,7 @@ class Settings(BaseSettings):
     # (fresh deploy, wiped disk, new embedding model). Relative to the working directory; "" disables.
     rag_bootstrap_dir: str = "../backend/src/seed/knowledge"
 
-    @field_validator("ollama_base_url", "api_base_url")
+    @field_validator("ollama_base_url", "api_base_url", "embedding_api_base_url")
     @classmethod
     def strip_trailing_slash(cls, v: str) -> str:
         return v.rstrip("/")

@@ -174,7 +174,7 @@ class AIProvider(Embedder):
 
 - `OllamaProvider` talks to `/api/chat` (with `format: "json"` for structured calls) and `/api/embed`.
 - `APIProvider` implements the OpenAI Chat Completions + Embeddings wire format with `response_format: json_object`. Presets supply the base URL for `openai`, `gemini` and `groq`; `openai_compatible` takes any `API_BASE_URL` (OpenRouter, vLLM, LM Studio…).
-- `factory.py` is the only place that knows concrete classes; it reads `AI_PROVIDER` from the environment. Business logic never imports a provider.
+- `factory.py` is the only place that knows concrete classes; it reads `AI_PROVIDER` from the environment. Business logic never imports a provider. Chat and embeddings are separate roles, so they can come from different vendors (`EMBEDDING_API_PROVIDER`), e.g. Groq for chat and Gemini for embeddings.
 
 **Structured output pipeline** (`generate_json`):
 
@@ -275,14 +275,21 @@ API_EMBEDDING_MODEL=text-embedding-3-small
 # Google Gemini (OpenAI-compatible endpoint; base URL preset)
 AI_PROVIDER=gemini
 API_KEY=<your key>
-API_MODEL=gemini-2.0-flash
-API_EMBEDDING_MODEL=text-embedding-004
+API_MODEL=gemini-3.5-flash-lite          # verified 2026-09 on the key's model list
+API_EMBEDDING_MODEL=gemini-embedding-2   # 3072-dim
+API_REASONING_EFFORT=low                 # Gemini thinking level: none|minimal|low|medium|high
+EMBEDDING_PROVIDER=api
 
-# Groq (no embeddings endpoint → embed locally or with hashing)
+# Groq for chat + Gemini for embeddings (Groq has no embeddings endpoint) — the verified local setup
 AI_PROVIDER=groq
-API_KEY=<your key>
-API_MODEL=llama-3.1-8b-instant
-EMBEDDING_PROVIDER=ollama        # or hash
+API_KEY=<your Groq key>
+API_MODEL=openai/gpt-oss-120b            # verified 2026-09; free tier: 1,000 requests/day, 8,000 tokens/min
+API_REASONING_EFFORT=low
+EMBEDDING_PROVIDER=api
+EMBEDDING_API_PROVIDER=gemini            # separate vendor + key for embeddings only
+EMBEDDING_API_KEY=<your Gemini key>
+API_EMBEDDING_MODEL=gemini-embedding-2
+# (or EMBEDDING_PROVIDER=ollama / hash to embed locally)
 
 # Anything OpenAI-compatible (OpenRouter, vLLM, LM Studio…)
 AI_PROVIDER=openai_compatible
@@ -291,7 +298,9 @@ API_KEY=<key or any non-empty value>
 API_MODEL=<model name>
 ```
 
-Model names change over time — use whatever your provider currently offers. Keys are read from the environment only, never logged, and never included in error messages or `repr()`.
+Model names change over time — use whatever your provider currently offers (for Gemini: `GET https://generativelanguage.googleapis.com/v1beta/models` with your key).
+
+**Gemini free-tier notes (measured 2026-09-28):** the free tier allowed only **20 requests per day per model** for `gemini-3.8-flash` (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`); one PrepAI interview uses roughly 12–20 chat calls, so the free tier is enough for a demo, not for users. Popular models also return `503 "high demand"` for long stretches. The API provider retries 5xx twice with backoff (2 s, 6 s; honouring `Retry-After`) and does **not** retry 429, which is usually a quota and would only burn requests. A full index rebuild (143 chunks) can hit the free per-minute embedding limit; the startup rebuild backs off and completes on its own. Keys are read from the environment only, never logged, and never included in error messages or `repr()`.
 
 ## MongoDB setup
 
@@ -337,7 +346,9 @@ Only `.env.example` files are committed. Copy each to `.env` in the same folder 
 | `AI_PROVIDER` | `ollama` | `ollama`, `openai`, `gemini`, `groq`, `openai_compatible` |
 | `OLLAMA_BASE_URL` / `OLLAMA_MODEL` / `OLLAMA_EMBEDDING_MODEL` | `http://localhost:11434` / — / `nomic-embed-text` | |
 | `API_BASE_URL` / `API_KEY` / `API_MODEL` / `API_EMBEDDING_MODEL` | — | API providers |
+| `API_REASONING_EFFORT` | — | optional `reasoning_effort` sent on chat calls (Gemini thinking level / OpenAI reasoning models): `none`, `minimal`, `low`, `medium`, `high` |
 | `EMBEDDING_PROVIDER` | `auto` | `auto`, `ollama`, `api`, `hash` |
+| `EMBEDDING_API_PROVIDER` / `EMBEDDING_API_KEY` / `EMBEDDING_API_BASE_URL` | — | with `EMBEDDING_PROVIDER=api`: a different vendor for embeddings than for chat (e.g. Groq chat + Gemini embeddings); empty = same vendor, key and URL as chat. The model is `API_EMBEDDING_MODEL` |
 | `VECTOR_STORE` / `VECTOR_DB_PATH` | `chroma` / `./data/vector_db` | `local` = NumPy store |
 | `RAG_TOP_K` / `CHUNK_SIZE` / `CHUNK_OVERLAP` | `4` / `900` / `150` | |
 | `RAG_BOOTSTRAP_DIR` | `../backend/src/seed/knowledge` | markdown knowledge base indexed at startup when documents are missing from the index; empty disables |

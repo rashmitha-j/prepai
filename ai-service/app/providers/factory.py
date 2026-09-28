@@ -29,6 +29,7 @@ def build_api(settings: Settings) -> APIProvider:
         timeout=settings.llm_timeout_seconds,
         temperature=settings.llm_temperature,
         max_output_tokens=settings.llm_max_output_tokens,
+        reasoning_effort=settings.api_reasoning_effort,
     )
 
 
@@ -45,5 +46,19 @@ def build_embedder(settings: Settings, provider: AIProvider) -> Embedder:
     if choice == "ollama":
         return provider if isinstance(provider, OllamaProvider) else build_ollama(settings)
     if choice == "api":
+        if settings.embedding_api_provider:
+            return build_api_embedder(settings)
         return provider if isinstance(provider, APIProvider) else build_api(settings)
     return provider  # auto
+
+
+def build_api_embedder(settings: Settings) -> APIProvider:
+    """Embedding-only API provider with its own vendor/key (EMBEDDING_API_*), falling back to API_*."""
+    return APIProvider(
+        name=settings.embedding_api_provider,
+        base_url=settings.embedding_api_base_url,
+        api_key=settings.embedding_api_key or settings.api_key,
+        model="",
+        embedding_model=settings.api_embedding_model,
+        timeout=settings.llm_timeout_seconds,
+    )
