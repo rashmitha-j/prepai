@@ -5,7 +5,7 @@ services:
     name: prepai-ai-service
     runtime: python
     rootDir: ai-service
-    plan: starter
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
@@ -29,9 +29,10 @@ services:
         value: api
       - key: VECTOR_STORE
         value: chroma
-      # Attach a persistent disk at /var/data, or rely on the automatic re-index on startup (below).
+      # Free plan: no persistent disk. The index lives on the instance's ephemeral filesystem
+      # (relative to rootDir) and is rebuilt automatically after every restart/spin-down (below).
       - key: VECTOR_DB_PATH
-        value: /var/data/vector_db
+        value: ./data/vector_db
       # Rebuilds an empty index when this service starts (relative to rootDir). If the path is
       # missing the service logs a warning and the backend's startup sync remains the fallback.
       - key: RAG_BOOTSTRAP_DIR
@@ -41,7 +42,7 @@ services:
     name: prepai-backend
     runtime: node
     rootDir: backend
-    plan: starter
+    plan: free
     buildCommand: npm install --omit=dev
     startCommand: node src/server.js
     healthCheckPath: /api/health
