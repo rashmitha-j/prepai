@@ -1,0 +1,81 @@
+# Local development stack: MongoDB + Node backend + Python AI service + frontend.
+# Ollama stays on the host (GPU access and model downloads are simpler there):
+#   ollama serve && ollama pull llama3.1:8b && ollama pull nomic-embed-text
+# Then:  docker compose up --build   and open http://localhost:5173
+# Secrets below are local-development placeholders only — never reuse them in production.
+name: prepai
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ai-service:
+    build: ./ai-service
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: development
+      PORT: 8000
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-local-dev-internal-token}
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      API_BASE_URL: ${API_BASE_URL:-}
+      API_KEY: ${API_KEY:-}
+      API_MODEL: ${API_MODEL:-}
+      API_EMBEDDING_MODEL: ${API_EMBEDDING_MODEL:-}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-auto}
+      VECTOR_STORE: chroma
+      VECTOR_DB_PATH: /app/data/vector_db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - vector-data:/app/data
+    ports:
+      - "8000:8000"
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/prepai
+      JWT_SECRET: ${JWT_SECRET:-local-dev-only-jwt-secret-change-me-in-production}
+      JWT_EXPIRES_IN: 1d
+      CLIENT_URL: http://localhost:5173
+      AI_SERVICE_URL: http://ai-service:8000
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-local-dev-internal-token}
+      CODE_RUNNER: process
+    ports:
+      - "5000:5000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:5000
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  mongo-data:
+  vector-data:

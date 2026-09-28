@@ -1,0 +1,18 @@
+{
+  "resume": {
+    "mustDetectSkills": ["C++", "JavaScript", "Python", "SQL", "React", "Redux", "Node.js", "Express.js",
+                          "REST APIs", "JWT", "MongoDB", "MySQL", "Git", "Docker", "Linux", "Flask", "Unit Testing"],
+    "mustNotDetectSkills": ["Java", "Kubernetes", "AWS"],
+    "projects": ["DevConnect", "AlgoViz", "ExpenseSplit"],
+    "education": "B.Tech"
+  },
+  "job": {
+    "requiredSkills": ["React", "Node.js", "SQL", "REST APIs", "Git", "JavaScript", "TypeScript", "Data Structures", "Algorithms", "OOP"],
+    "preferredSkills": ["Docker", "Kubernetes", "AWS", "Redis", "System Design"],
+    "experienceLevel": "entry"
+  },
+  "match": {
+    "expectedMissingRequired": ["TypeScript", "PostgreSQL"],
+    "expectedMissingPreferred": ["Kubernetes", "AWS", "Redis", "System Design"]
+  }
+}

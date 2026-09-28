@@ -1,0 +1,7 @@
+{
+  "_comment": "Representative raw outputs in the messy shapes local models often produce. Used to prove the validators normalise drift. Not real model transcripts of this repository's prompts.",
+  "resume": "```json\n{\"summary\": \"CS student\", \"skills\": \"C++, JavaScript, React, react.js\", \"technologies\": [\"Docker\", {\"name\": \"Git\"}], \"projects\": [{\"name\": \"DevConnect\", \"technologies\": \"React, Node.js\"}, \"AlgoViz\"], \"experience\": {\"title\": \"Intern\", \"organization\": \"Finlytics\"}, \"education\": [{\"degree\": \"B.Tech\", \"year\": 2026}], \"strengths\": [\"DSA\"], \"possibleGaps\": null, \"thinking\": \"step 1...\"}\n```",
+  "job": "Here is the analysis:\n{\"title\": \"Software Engineer I\", \"requiredSkills\": [\"React\", \"Node.js\", \"SQL\",], \"preferredSkills\": \"Docker; AWS\", \"experienceLevel\": \"Entry level (0-2 yrs)\"}",
+  "evaluation": "{\"scores\": {\"correctness\": \"9/10\", \"relevance\": 10, \"technicalDepth\": 8.4, \"clarity\": \"8\", \"completeness\": 9, \"communication\": 11}, \"summary\": \"Excellent and precise.\", \"strengths\": \"Covered all four conditions\", \"missingPoints\": [], \"suggestions\": [\"Mention livelock\"], \"modelAnswer\": \"...\", \"followUp\": {\"shouldAsk\": \"false\"}}",
+  "report": "{\"summary\": \"Good\", \"roadmap\": [\"Revise OS\", {\"title\": \"SQL practice\", \"actions\": \"joins, window functions\"}], \"weakAreas\": \"SQL\"}"
+}

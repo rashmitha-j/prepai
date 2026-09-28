@@ -1,0 +1,65 @@
+# Render Blueprint (not deployed automatically). Set the `sync: false` values in the
+# Render dashboard. MongoDB is hosted on MongoDB Atlas; the frontend on Vercel.
+services:
+  - type: web
+    name: prepai-ai-service
+    runtime: python
+    rootDir: ai-service
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: AI_SERVICE_TOKEN
+        sync: false
+      # A hosted API provider is typical in production (Ollama needs a GPU host).
+      - key: AI_PROVIDER
+        value: openai
+      - key: API_KEY
+        sync: false
+      - key: API_MODEL
+        sync: false
+      - key: API_EMBEDDING_MODEL
+        sync: false
+      - key: EMBEDDING_PROVIDER
+        value: api
+      - key: VECTOR_STORE
+        value: chroma
+      # Attach a persistent disk at /var/data, or rely on the backend's automatic re-index on startup.
+      - key: VECTOR_DB_PATH
+        value: /var/data/vector_db
+
+  - type: web
+    name: prepai-backend
+    runtime: node
+    rootDir: backend
+    plan: starter
+    buildCommand: npm install --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: CLIENT_URL
+        sync: false
+      - key: AI_SERVICE_URL
+        sync: false
+      - key: AI_SERVICE_TOKEN
+        sync: false
+      - key: TRUST_PROXY
+        value: "true"
+      # The local process sandbox is refused in production; use a dedicated judge.
+      - key: CODE_RUNNER
+        value: disabled

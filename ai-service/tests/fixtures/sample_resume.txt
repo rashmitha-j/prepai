@@ -1,0 +1,32 @@
+Aarav Sharma
+Bengaluru, India | aarav.sharma@example.com | github.com/example-aarav
+
+SUMMARY
+Final-year Computer Science student who enjoys building full-stack web applications and
+solving algorithmic problems. 400+ problems solved on competitive programming platforms.
+
+SKILLS
+Languages: C++, JavaScript, Python, SQL
+Frontend: React, Redux Toolkit, HTML, CSS, Tailwind CSS
+Backend: Node.js, Express.js, REST APIs, JWT authentication
+Databases: MongoDB, MySQL
+Tools: Git, Docker, Postman, Linux
+
+PROJECTS
+DevConnect — Developer social network (React, Node.js, Express.js, MongoDB)
+- Built REST APIs with JWT auth and role-based access; deployed on Render and Vercel.
+- Added image uploads and pagination; reduced feed load time by 35% with indexing.
+
+AlgoViz — Pathfinding visualizer (React, JavaScript)
+- Interactive visualisation of BFS, DFS, Dijkstra and A* on a grid.
+
+ExpenseSplit — Group expense tracker (Python, Flask, MySQL)
+- Designed a normalized schema and SQL queries for settling group balances.
+
+EXPERIENCE
+Software Development Intern, Finlytics Pvt Ltd — May 2025 to July 2025 (3 months)
+- Implemented Node.js microservice endpoints and wrote Jest unit tests.
+- Improved a slow MongoDB aggregation by adding compound indexes.
+
+EDUCATION
+B.Tech in Computer Science and Engineering, National Institute of Technology — 2022-2026, CGPA 8.7/10

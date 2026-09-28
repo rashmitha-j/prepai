@@ -1,0 +1,11 @@
+{
+  "question": "What are the four necessary conditions for a deadlock, and how can you prevent one?",
+  "category": "os",
+  "expectedPoints": ["Mutual exclusion", "Hold and wait", "No preemption", "Circular wait", "Prevention by breaking a condition, e.g. lock ordering"],
+  "answers": {
+    "strong": "A deadlock can only happen when four conditions hold at the same time. Mutual exclusion: at least one resource is held in a non-shareable mode. Hold and wait: a process holds one resource while waiting for another. No preemption: resources cannot be forcibly taken away. Circular wait: there is a cycle of processes each waiting for a resource held by the next. To prevent deadlock we break one of them - the most practical is imposing a global order on lock acquisition, which removes circular wait. We can also require processes to request all resources up front, or use timeouts and try-lock. Avoidance algorithms like the Banker's algorithm only grant requests that keep the system in a safe state.",
+    "partial": "Deadlock is when two threads wait for each other forever. It happens because of mutual exclusion and circular wait. You can prevent it by being careful with locks.",
+    "weak": "I think deadlock is when the CPU is too slow and the program hangs, you fix it by restarting.",
+    "offTopic": "React uses a virtual DOM to update the UI efficiently."
+  }
+}

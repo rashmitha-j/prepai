@@ -1,0 +1,26 @@
+Software Engineer I — Full Stack (Bengaluru)
+Company: CloudNest Technologies
+
+About the role
+You will build customer-facing features across our React frontend and Node.js services,
+working with product managers and senior engineers.
+
+Responsibilities
+- Develop and maintain features using React and Node.js
+- Design REST APIs and data models
+- Write unit and integration tests
+- Participate in code reviews and on-call rotations
+
+Requirements
+- 0-2 years of experience or strong internship experience
+- Strong fundamentals in data structures, algorithms and OOP
+- Proficiency in JavaScript or TypeScript
+- Experience with React and Node.js
+- Solid SQL skills with PostgreSQL or MySQL
+- Understanding of REST APIs and Git
+
+Nice to have
+- Docker and Kubernetes
+- AWS
+- Redis caching
+- System design basics
