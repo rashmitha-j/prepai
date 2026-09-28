@@ -16,17 +16,24 @@ services:
         value: 3.11.9
       - key: AI_SERVICE_TOKEN
         sync: false
-      # A hosted API provider is typical in production (Ollama needs a GPU host).
+      # Same setup as verified locally: Groq for chat, Gemini for embeddings
+      # (Groq has no embeddings endpoint). Ollama needs a GPU host, so it is not used here.
       - key: AI_PROVIDER
-        value: openai
-      - key: API_KEY
+        value: groq
+      - key: API_KEY            # Groq API key
         sync: false
       - key: API_MODEL
-        sync: false
-      - key: API_EMBEDDING_MODEL
-        sync: false
+        value: openai/gpt-oss-120b
+      - key: API_REASONING_EFFORT
+        value: low
       - key: EMBEDDING_PROVIDER
         value: api
+      - key: EMBEDDING_API_PROVIDER
+        value: gemini
+      - key: EMBEDDING_API_KEY  # Gemini API key
+        sync: false
+      - key: API_EMBEDDING_MODEL
+        value: gemini-embedding-2
       - key: VECTOR_STORE
         value: chroma
       # Free plan: no persistent disk. The index lives on the instance's ephemeral filesystem
@@ -53,8 +60,8 @@ services:
         value: "22"
       - key: MONGO_URI
         sync: false
-      - key: JWT_SECRET
-        generateValue: true
+      - key: JWT_SECRET         # >= 32 random characters
+        sync: false
       - key: JWT_EXPIRES_IN
         value: 1d
       - key: CLIENT_URL
