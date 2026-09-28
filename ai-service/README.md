@@ -64,7 +64,7 @@ python -m app.rag.cli search "what causes a deadlock" --topic os -k 3
 python -m app.rag.cli stats
 ```
 
-Normally the Node backend ingests documents from MongoDB (the source of truth) and re-indexes automatically on startup.
+Normally the Node backend ingests documents from MongoDB (the source of truth) and re-indexes automatically on startup. The AI service also indexes any document from `RAG_BOOTSTRAP_DIR` missing from the index when it starts, so an AI-service restart with a wiped disk heals itself.
 
 ## Tests
 

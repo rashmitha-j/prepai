@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     chunk_size: int = 900
     chunk_overlap: int = 150
     rag_context_chars: int = 3500
+    # Markdown knowledge base ingested at startup when the index is missing documents
+    # (fresh deploy, wiped disk, new embedding model). Relative to the working directory; "" disables.
+    rag_bootstrap_dir: str = "../backend/src/seed/knowledge"
 
     @field_validator("ollama_base_url", "api_base_url")
     @classmethod

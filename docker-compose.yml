@@ -37,10 +37,13 @@ services:
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-auto}
       VECTOR_STORE: chroma
       VECTOR_DB_PATH: /app/data/vector_db
+      RAG_BOOTSTRAP_DIR: /app/knowledge
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - vector-data:/app/data
+      # The image only contains ai-service/; mount the knowledge base so an empty index rebuilds at startup.
+      - ./backend/src/seed/knowledge:/app/knowledge:ro
     ports:
       - "8000:8000"
 

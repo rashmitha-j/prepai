@@ -22,6 +22,7 @@ def make_settings(**overrides) -> Settings:
         vector_db_path="",
         ai_service_token=None,
         rag_min_score=0.0,
+        rag_bootstrap_dir="",  # startup indexing is tested explicitly in test_bootstrap.py
         _env_file=None,
     )
     base.update(overrides)

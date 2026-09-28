@@ -120,7 +120,7 @@ prepai/
 │   │   ├── core/                config, errors, security, container (DI), json_utils
 │   │   ├── models/              Pydantic schemas + sanitising field types
 │   │   ├── providers/           base (AIProvider/Embedder), ollama, api_provider, hashing_embedder, factory
-│   │   ├── rag/                 loaders, cleaning, chunking, vector_store, pipeline, cli
+│   │   ├── rag/                 loaders, cleaning, chunking, vector_store, pipeline, bootstrap, cli
 │   │   ├── services/            analysis, interview, coding, prompts, skills taxonomy
 │   │   └── main.py
 │   ├── tests/                   pytest (7 files), fixtures, scripted provider, stub server
@@ -224,15 +224,16 @@ Question / evaluation / report
    ```bash
    MONGO_URI="<your connection string>" npm run seed    # non-destructive; also indexes them if the AI service is reachable
    ```
-2. **Automatic:** whenever the **backend** starts (`KNOWLEDGE_AUTO_SYNC=true`), it compares MongoDB with the AI service's `/rag/stats` and re-embeds anything missing (retrying for ~2.5 min if the AI service is still booting). On first deploy, start the AI service first, then the backend.
-3. **If only the AI service restarted** (e.g. a Render free-tier spin-down wiped its disk), the backend does not notice. Rebuild with either:
+2. **Automatic, two independent triggers** (both only embed documents that are missing, and both use the same chunk ids, so running together never duplicates anything):
+   - **AI service start:** ingests any document from `RAG_BOOTSTRAP_DIR` (default `../backend/src/seed/knowledge`) missing from the index. It runs in the background, so `/health` answers immediately, and retries with backoff while the embedding provider is still starting. This covers the AI service restarting on its own (e.g. a Render spin-down that wiped its disk). If the directory is not present, e.g. a Docker image without the mount, it logs a warning and skips.
+   - **Backend start** (`KNOWLEDGE_AUTO_SYNC=true`): compares MongoDB with `/rag/stats` and re-embeds anything missing, including documents added through the admin API that are not in the markdown folder.
+3. **Manual**, if needed (from `ai-service/`):
    ```bash
-   # on the AI service host (Render shell), from ai-service/ — same document ids as the backend, no duplicates
    python -m app.rag.cli ingest ../backend/src/seed/knowledge
    ```
-   or restart the backend service. Check with `GET /api/health` → `vectorStore.chunks` should be **143**.
+   Check with `GET /api/health` → `vectorStore.chunks` should be **143**. With `nomic-embed-text` on a CPU-only machine a full rebuild takes about 1.5 minutes; with an API embedder, seconds.
 
-A persistent disk mounted at `VECTOR_DB_PATH` avoids steps 2–3 after the first build.
+A persistent disk mounted at `VECTOR_DB_PATH` avoids re-embedding after restarts.
 
 ## Why embeddings are used
 
@@ -339,6 +340,7 @@ Only `.env.example` files are committed. Copy each to `.env` in the same folder 
 | `EMBEDDING_PROVIDER` | `auto` | `auto`, `ollama`, `api`, `hash` |
 | `VECTOR_STORE` / `VECTOR_DB_PATH` | `chroma` / `./data/vector_db` | `local` = NumPy store |
 | `RAG_TOP_K` / `CHUNK_SIZE` / `CHUNK_OVERLAP` | `4` / `900` / `150` | |
+| `RAG_BOOTSTRAP_DIR` | `../backend/src/seed/knowledge` | markdown knowledge base indexed at startup when documents are missing from the index; empty disables |
 | `LLM_TEMPERATURE` / `LLM_TIMEOUT_SECONDS` / `LLM_MAX_OUTPUT_TOKENS` | `0.3` / `120` / `1500` | |
 
 **`frontend/.env`** — `VITE_API_URL=http://localhost:5000` (backend origin, without `/api`); optional `VITE_API_TIMEOUT_MS` (default `300000`).

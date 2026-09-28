@@ -1,6 +1,7 @@
 """FastAPI entrypoint for the PrepAI AI service."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -10,6 +11,12 @@ from app.api.routes import health_router, router
 from app.core.config import Settings, get_settings
 from app.core.container import Container, build_container
 from app.core.errors import register_exception_handlers
+from app.rag.bootstrap import bootstrap_index
+
+
+def _log_task_failure(task: asyncio.Task) -> None:
+    if not task.cancelled() and task.exception() is not None:
+        logging.getLogger("prepai.rag").error("RAG bootstrap failed: %s", task.exception())
 
 
 def create_app(settings: Settings | None = None, container: Container | None = None) -> FastAPI:
@@ -28,7 +35,12 @@ def create_app(settings: Settings | None = None, container: Container | None = N
             "AI service ready: provider=%s model=%s embeddings=%s store=%s",
             c.provider.name, c.provider.model or "(unset)", c.embedder.embedding_id, c.rag.store.kind,
         )
+        # Rebuild a missing/empty vector index in the background so /health answers immediately.
+        task = asyncio.create_task(bootstrap_index(c, settings.rag_bootstrap_dir))
+        task.add_done_callback(_log_task_failure)
+        app.state.bootstrap_task = task
         yield
+        task.cancel()
 
     app = FastAPI(
         title="PrepAI AI Service",
