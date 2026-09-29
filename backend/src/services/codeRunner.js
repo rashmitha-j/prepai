@@ -222,7 +222,11 @@ function dockerArgs(workDir, memoryLimitMb, command) {
 function assertAvailable() {
   const mode = config.codeRunner.mode;
   if (mode === 'disabled') {
-    throw AppError.unavailable('Code execution is disabled on this server (CODE_RUNNER=disabled).', 'CODE_EXECUTION_DISABLED');
+    throw AppError.unavailable(
+      'Running code is turned off on this demo for security. You can still read the problem and write your solution; '
+        + 'to run it against the tests, use a local installation of PrepAI.',
+      'CODE_EXECUTION_DISABLED',
+    );
   }
   if (mode === 'process' && config.isProduction && !config.codeRunner.allowUnsafe) {
     throw AppError.unavailable(

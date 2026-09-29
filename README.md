@@ -1,5 +1,14 @@
 # PrepAI — AI Interview Coach
 
+**Live demo: [prepai-frontend-drab.vercel.app](https://prepai-frontend-drab.vercel.app)** — free-tier hosting: the first request after a quiet period takes about 50 s while the services wake up. Use fake data only (see [Known limitations](#known-limitations)).
+
+```text
+Browser ──► Vercel (React SPA) ──► Render: Node/Express backend ──► MongoDB Atlas
+                                          │
+                                          └──► Render: Python FastAPI AI service ──► Groq (chat: openai/gpt-oss-120b)
+                                                                                 └──► Gemini (embeddings: gemini-embedding-2)
+```
+
 PrepAI is a full-stack AI interview-preparation platform. A candidate uploads a resume, pastes a job description, sees which required skills they already cover, then takes an **adaptive mock interview**: questions are generated one at a time from their resume, the job, their previous answers and a **RAG knowledge base**, every answer is scored against a fixed rubric, follow-ups probe weak answers, and the session ends with a report and a personalised learning roadmap. There is also a C++ coding-practice module with a sandboxed judge.
 
 It is deliberately *not* "React → API → ChatGPT → display answer". The interesting parts are the provider abstraction, schema-validated structured outputs, embeddings + vector search, multi-turn interview state, deterministic scoring, graceful degradation and the test/eval harness.
@@ -511,20 +520,32 @@ All routes are under `/api`; everything except `health`, `register` and `login` 
 ```text
 Vercel (frontend, static SPA)  ──►  Render web service: prepai-backend (Node)  ──►  MongoDB Atlas
                                             │
-                                            └──►  Render web service: prepai-ai-service (Python)  ──►  LLM API
+                                            └──►  Render web service: prepai-ai-service (Python)  ──►  Groq (chat)
+                                                                                                └──►  Gemini (embeddings)
 ```
 
-Nothing is deployed automatically. Configuration is prepared:
+The live demo runs this way on free tiers ([prepai-frontend-drab.vercel.app](https://prepai-frontend-drab.vercel.app)):
 
-- **Vercel:** `frontend/vercel.json` (Vite build, SPA rewrites, security headers, immutable asset caching). Set the project root to `frontend/` and `VITE_API_URL=https://<your-backend>.onrender.com`.
-- **Render:** `render.yaml` blueprint defines both services with health checks. Secrets are `sync: false` (set in the dashboard); `JWT_SECRET` is generated. Set `CLIENT_URL` to your Vercel URL, `AI_SERVICE_URL` to the AI service URL and the same `AI_SERVICE_TOKEN` on both.
-- **AI service on Render:** Ollama needs a GPU host, so production typically uses an API provider. The vector index lives on local disk: attach a persistent disk at `/var/data`, or rely on the backend's startup re-index from MongoDB (it re-embeds 13 documents, a few seconds and a few cents with an API embedder). See [Rebuilding the vector index](#rebuilding-the-vector-index) for the first deploy and for AI-service-only restarts.
-- **MongoDB Atlas:** see [MongoDB setup](#mongodb-setup).
-- No production domains are hard-coded anywhere.
+- **Vercel:** project root `frontend/`; `frontend/vercel.json` sets the Vite build, output `dist`, SPA rewrites, security headers and immutable asset caching. The only variable is `VITE_API_URL=https://<your-backend>.onrender.com` (no `/api`), which is baked in at build time — redeploy after changing it.
+- **Render:** the `render.yaml` blueprint defines both services on the **free plan** with health checks, and the AI settings verified locally (`AI_PROVIDER=groq`, `API_MODEL=openai/gpt-oss-120b`, `EMBEDDING_API_PROVIDER=gemini`, `API_EMBEDDING_MODEL=gemini-embedding-2`). Secrets are `sync: false` and entered in the dashboard: `API_KEY` (Groq), `EMBEDDING_API_KEY` (Gemini), `AI_SERVICE_TOKEN` (same value on both services), `MONGO_URI`, `JWT_SECRET` (≥ 32 random characters), plus `AI_SERVICE_URL` and `CLIENT_URL` (the Vercel URL, for CORS).
+- **AI service on Render:** Ollama needs a GPU host, so production uses API providers. The free plan has no persistent disk, so the vector index lives on the instance's ephemeral filesystem and is rebuilt automatically after every restart or spin-down — see [Rebuilding the vector index](#rebuilding-the-vector-index).
+- **Code execution** is disabled in production (`CODE_RUNNER=disabled`); see the sandbox notes above.
+- **MongoDB Atlas:** see [MongoDB setup](#mongodb-setup). Seed it once from your machine with `MONGO_URI` set in the terminal (never in a file).
+- No production domains are hard-coded anywhere; nothing deploys from CI.
 
 ---
 
 ## Known limitations
+
+**Live demo**
+
+- **Cold start (~50 s):** the backend and AI service run on Render's free plan and sleep after ~15 minutes idle. The first request after that takes about 50 seconds; the AI service then also rebuilds its knowledge-base index for a few minutes (free-tier embedding rate limits), so knowledge-grounded answers improve once that finishes.
+- **Code execution is disabled in production:** coding problems, examples and starter code are available, but Run/Submit are turned off on the public demo, because the built-in judge is not a safe sandbox for untrusted code on a shared server. Running code works in a local installation.
+- **Scores are practice feedback:** evaluations, scores, match analysis and roadmaps come from a language model and can be wrong. They are practice signals, not assessments or hiring decisions.
+- **Fake data only:** the demo stores everything in a shared database, and resume/answer content is sent to third-party AI APIs (Groq, Gemini) on free tiers. Do not upload a real resume or personal information — use a made-up resume.
+- **Free-tier quotas:** Groq's free tier allows ~1,000 chat requests/day and 8,000 tokens/minute; if they are exhausted, analyses fall back to keyword mode and interview steps show a "try again later" message.
+
+**General**
 
 - **LLM hallucination:** questions, feedback and model answers can be wrong or overconfident. Retrieval grounding, schema validation and cross-checks reduce this but cannot eliminate it; the UI says so.
 - **Evaluation subjectivity:** rubric scores from a model are not ground truth and vary between runs and models (temperature 0.1 reduces variance). Treat scores as practice signals, not assessments.

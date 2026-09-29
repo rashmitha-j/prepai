@@ -19,7 +19,11 @@ export default function About() {
           relevant passages from the knowledge base (retrieval-augmented generation).
         </li>
         <li>Answers are scored against a fixed rubric. The overall score is computed by the application, not by the model.</li>
-        <li>At the end you get a report and a learning roadmap. Coding problems are judged by compiling and running your C++ code against test cases.</li>
+        <li>At the end you get a report and a learning roadmap.</li>
+        <li>
+          Coding problems come with examples and starter code. In a local installation your C++ code is compiled and run against
+          test cases; on this public demo, running code is turned off for security.
+        </li>
       </ul>
 
       <h2>What PrepAI is not</h2>
